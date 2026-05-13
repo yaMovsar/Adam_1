@@ -14,7 +14,7 @@ from keyboards.keyboards import (
     main_menu_manager, clients_keyboard, orders_list_keyboard,
     order_actions_keyboard, STATUS_LABELS
 )
-from utils.helpers import format_order_card, parse_deadline, calculate_deadline
+from utils.helpers import format_order_card, parse_deadline, calculate_deadline, notify_owner
 
 router = Router()
 
@@ -134,6 +134,11 @@ async def order_deadline(message: Message, state: FSMContext):
     text = format_order_card(order)
     await message.answer(f"✅ Заказ создан!\n\n{text}", reply_markup=main_menu_manager())
 
+    await notify_owner(
+        message.bot,
+        f"🆕 Создан новый заказ\n\n{text}\n\n👨‍💼 Менеджер: {user['name']}"
+    )
+
     try:
         await message.bot.send_message(
             ADAM_ID,
@@ -241,6 +246,15 @@ async def set_status(callback: CallbackQuery):
     await callback.message.answer(
         f"✅ Статус заказа {order['order_number']} обновлён: {label}",
         reply_markup=order_actions_keyboard(order["id"], order["status"], user["role"])
+    )
+
+    await notify_owner(
+        callback.bot,
+        f"📊 Статус заказа обновлён\n\n"
+        f"📦 Заказ {order['order_number']}\n"
+        f"👤 Клиент: {order.get('client_name') or '—'}\n"
+        f"📊 Новый статус: {label}\n"
+        f"👨‍💼 Кем: {user['name']}"
     )
 
     if new_status in ["ready", "shipped"]:

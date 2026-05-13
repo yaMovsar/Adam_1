@@ -3,6 +3,16 @@ import re
 from keyboards.keyboards import STATUS_LABELS
 
 
+async def notify_owner(bot, text: str):
+    from config import OWNER_ID
+    if not OWNER_ID:
+        return
+    try:
+        await bot.send_message(OWNER_ID, text)
+    except Exception:
+        pass
+
+
 def format_order_card(order, archived=False) -> str:
     status = STATUS_LABELS.get(order["status"], order["status"])
     deadline = order["deadline"].strftime("%d.%m.%Y") if order.get("deadline") else "—"

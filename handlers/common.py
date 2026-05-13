@@ -7,6 +7,7 @@ from keyboards.keyboards import (
     main_menu_admin, main_menu_manager,
     main_menu_adam, main_menu_client
 )
+from utils.helpers import notify_owner
 
 router = Router()
 
@@ -34,16 +35,17 @@ async def cmd_start(message: Message):
         )
         from aiogram import Bot
         bot = message.bot
+        notice = (
+            f"⏳ Новый пользователь ожидает подтверждения:\n"
+            f"Имя: {message.from_user.full_name}\n"
+            f"ID: {telegram_id}\n"
+            f"Username: @{message.from_user.username or 'нет'}"
+        )
         try:
-            await bot.send_message(
-                ADMIN_ID,
-                f"⏳ Новый пользователь ожидает подтверждения:\n"
-                f"Имя: {message.from_user.full_name}\n"
-                f"ID: {telegram_id}\n"
-                f"Username: @{message.from_user.username or 'нет'}"
-            )
+            await bot.send_message(ADMIN_ID, notice)
         except Exception:
             pass
+        await notify_owner(bot, notice)
         return
 
     role = user["role"]

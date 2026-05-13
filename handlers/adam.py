@@ -5,7 +5,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 from database.db import get_user_by_telegram_id, get_order_by_id, extend_order_deadline
 from keyboards.keyboards import order_actions_keyboard
-from utils.helpers import format_order_card, parse_deadline
+from utils.helpers import format_order_card, parse_deadline, notify_owner
 
 router = Router()
 
@@ -25,7 +25,7 @@ async def extend_deadline_start(callback: CallbackQuery, state: FSMContext):
     order = await get_order_by_id(order_id)
 
     await state.set_state(ExtendStates.waiting_reason)
-    await state.update_data(order_id=order_id, user_id=user["id"])
+    await state.update_data(order_id=order_id, user_id=user["id"], user_name=user["name"])
 
     await callback.message.answer(
         f"📅 Продление срока заказа {order['order_number']}\n"
@@ -63,4 +63,14 @@ async def extend_new_date(message: Message, state: FSMContext):
         f"Причина: {data['reason']}\n\n"
         f"{format_order_card(order)}",
         reply_markup=order_actions_keyboard(order["id"], order["status"], "adam")
+    )
+
+    await notify_owner(
+        message.bot,
+        f"📅 Продлён срок заказа\n\n"
+        f"📦 Заказ {order['order_number']}\n"
+        f"👤 Клиент: {order.get('client_name') or '—'}\n"
+        f"📅 Новый срок: {new_deadline.strftime('%d.%m.%Y')}\n"
+        f"💬 Причина: {data['reason']}\n"
+        f"👨‍💼 Кем: {data['user_name']}"
     )

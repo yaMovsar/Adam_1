@@ -5,6 +5,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 from database.db import get_all_pending_users, update_user_role, get_user_by_telegram_id
 from keyboards.keyboards import admin_pending_user_keyboard, role_selection_keyboard, main_menu_admin
+from utils.helpers import notify_owner
 
 router = Router()
 
@@ -105,6 +106,13 @@ async def set_role(callback: CallbackQuery, state: FSMContext):
         )
     except Exception:
         pass
+
+    await notify_owner(
+        callback.bot,
+        f"✅ Назначена роль\n\n"
+        f"👤 Имя: {name}\n"
+        f"🎭 Роль: {role_labels.get(role, role)}"
+    )
 
     await callback.answer("Роль назначена")
 
