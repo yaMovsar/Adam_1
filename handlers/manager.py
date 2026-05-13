@@ -40,13 +40,25 @@ async def new_order_start(message: Message, state: FSMContext):
     if not await check_role(message.from_user.id, ["manager", "admin"]):
         return
     await state.set_state(OrderStates.waiting_photo)
-    await message.answer("📷 Отправьте фото изделия:")
+    from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+    skip_kb = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="⏭ Без фото")]],
+        resize_keyboard=True, one_time_keyboard=True
+    )
+    await message.answer("📷 Отправьте фото изделия:", reply_markup=skip_kb)
 
 
 @router.message(OrderStates.waiting_photo, F.photo)
 async def order_photo(message: Message, state: FSMContext):
     photo_id = message.photo[-1].file_id
     await state.update_data(photo_file_id=photo_id)
+    await state.set_state(OrderStates.waiting_color)
+    await message.answer("🎨 Укажите цвет:")
+
+
+@router.message(OrderStates.waiting_photo, F.text == "⏭ Без фото")
+async def order_photo_skip(message: Message, state: FSMContext):
+    await state.update_data(photo_file_id=None)
     await state.set_state(OrderStates.waiting_color)
     await message.answer("🎨 Укажите цвет:")
 
