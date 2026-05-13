@@ -35,6 +35,7 @@ def main_menu_client():
 
 def main_menu_admin():
     kb = ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="➕ Новый заказ")],
         [KeyboardButton(text="👥 Пользователи"), KeyboardButton(text="⏳ Ожидают подтверждения")],
         [KeyboardButton(text="📋 Активные заказы"), KeyboardButton(text="🗂 Архив")],
     ], resize_keyboard=True)
