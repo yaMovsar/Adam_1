@@ -11,7 +11,7 @@ from database.db import (
     update_order_status
 )
 from keyboards.keyboards import (
-    main_menu_manager, clients_keyboard, orders_list_keyboard,
+    main_menu_manager, main_menu_admin, clients_keyboard, orders_list_keyboard,
     order_actions_keyboard, STATUS_LABELS
 )
 from utils.helpers import format_order_card, parse_deadline, calculate_deadline, notify_owner
@@ -132,7 +132,8 @@ async def order_deadline(message: Message, state: FSMContext):
     await state.clear()
 
     text = format_order_card(order)
-    await message.answer(f"✅ Заказ создан!\n\n{text}", reply_markup=main_menu_manager())
+    menu = main_menu_admin() if user["role"] == "admin" else main_menu_manager()
+    await message.answer(f"✅ Заказ создан!\n\n{text}", reply_markup=menu)
 
     await notify_owner(
         message.bot,
