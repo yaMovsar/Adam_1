@@ -54,6 +54,19 @@ def clients_keyboard(clients):
     return builder.as_markup()
 
 
+def edit_clients_keyboard(clients):
+    builder = InlineKeyboardBuilder()
+    for client in clients:
+        builder.button(
+            text=client["name"],
+            callback_data=f"edit_select_client:{client['id']}"
+        )
+    builder.button(text="➕ Новый клиент", callback_data="edit_new_client")
+    builder.button(text="❌ Отмена", callback_data="edit_cancel_client")
+    builder.adjust(2)
+    return builder.as_markup()
+
+
 def order_actions_keyboard(order_id: int, current_status: str, role: str):
     builder = InlineKeyboardBuilder()
 

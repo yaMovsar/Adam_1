@@ -5,11 +5,12 @@ from aiogram.fsm.state import State, StatesGroup
 
 from database.db import (
     get_all_pending_users, update_user_role, get_user_by_telegram_id,
-    get_order_by_id, get_all_clients, delete_order, update_order_field
+    get_order_by_id, get_all_clients, delete_order, update_order_field, create_client_no_tg
 )
 from keyboards.keyboards import (
     admin_pending_user_keyboard, role_selection_keyboard, main_menu_admin,
-    order_actions_keyboard, order_edit_keyboard, confirm_delete_keyboard, clients_keyboard
+    order_actions_keyboard, order_edit_keyboard, confirm_delete_keyboard,
+    edit_clients_keyboard
 )
 from utils.helpers import notify_owner, format_order_card, parse_deadline
 
@@ -24,6 +25,7 @@ class AdminStates(StatesGroup):
 class OrderEditStates(StatesGroup):
     waiting_value = State()
     waiting_client = State()
+    waiting_new_client_name = State()
 
 
 @router.message(F.text == "⏳ Ожидают подтверждения")
@@ -188,7 +190,7 @@ async def edit_field_select(callback: CallbackQuery, state: FSMContext):
         await state.update_data(order_id=order_id)
         await callback.message.answer(
             "👤 Выберите нового клиента:",
-            reply_markup=clients_keyboard(clients)
+            reply_markup=edit_clients_keyboard(clients)
         )
     else:
         prompts = {
@@ -223,7 +225,7 @@ async def edit_field_value(message: Message, state: FSMContext):
     )
 
 
-@router.callback_query(OrderEditStates.waiting_client, F.data.startswith("select_client:"))
+@router.callback_query(F.data.startswith("edit_select_client:"))
 async def edit_client_select(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     client_id = int(callback.data.split(":")[1])
@@ -233,6 +235,33 @@ async def edit_client_select(callback: CallbackQuery, state: FSMContext):
         f"✅ Клиент обновлён!\n\n{format_order_card(order)}",
         reply_markup=order_actions_keyboard(order["id"], order["status"], "admin")
     )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "edit_new_client")
+async def edit_new_client_prompt(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(OrderEditStates.waiting_new_client_name)
+    await callback.message.answer("Введите имя нового клиента:")
+    await callback.answer()
+
+
+@router.message(OrderEditStates.waiting_new_client_name)
+async def edit_new_client_name(message: Message, state: FSMContext):
+    data = await state.get_data()
+    name = message.text.strip()
+    new_client = await create_client_no_tg(name)
+    order = await update_order_field(data["order_id"], "client_id", new_client["id"])
+    await state.clear()
+    await message.answer(
+        f"✅ Клиент «{name}» создан и привязан к заказу!\n\n{format_order_card(order)}",
+        reply_markup=order_actions_keyboard(order["id"], order["status"], "admin")
+    )
+
+
+@router.callback_query(F.data == "edit_cancel_client")
+async def edit_cancel_client(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.edit_text("❌ Выбор клиента отменён.")
     await callback.answer()
 
 
