@@ -1,5 +1,6 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from datetime import date
 
 
 STATUS_LABELS = {
@@ -8,6 +9,29 @@ STATUS_LABELS = {
     "ready": "📦 Готов",
     "shipped": "🚚 Отправлен",
 }
+
+STATUS_SHORT = {
+    "accepted": "✅ Принят",
+    "in_production": "🔨 Произв.",
+    "ready": "📦 Готов",
+    "shipped": "🚚 Отпр.",
+}
+
+
+def _deadline_label(deadline) -> str:
+    if deadline is None:
+        return ""
+    today = date.today()
+    if hasattr(deadline, "date"):
+        deadline = deadline.date()
+    delta = (deadline - today).days
+    if delta < 0:
+        return f" • 🔴 просрочен {-delta}д"
+    if delta == 0:
+        return " • 🔴 сегодня"
+    if delta <= 2:
+        return f" • 🟡 {delta}д"
+    return f" • 🟢 {delta}д"
 
 
 def main_menu_manager():
@@ -119,9 +143,10 @@ def confirm_delete_keyboard(order_id: int):
 def orders_list_keyboard(orders, prefix="order"):
     builder = InlineKeyboardBuilder()
     for order in orders:
-        status = STATUS_LABELS.get(order["status"], order["status"])
+        status = STATUS_SHORT.get(order["status"], order["status"])
+        deadline = _deadline_label(order.get("deadline"))
         builder.button(
-            text=f"{order['order_number']} • {order['client_name']} • {status}",
+            text=f"{order['order_number']} • {order['client_name']} • {status}{deadline}",
             callback_data=f"{prefix}_detail:{order['id']}"
         )
     builder.adjust(1)
