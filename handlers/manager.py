@@ -7,7 +7,7 @@ from datetime import date, timedelta
 from config import ADAM_ID
 from database.db import (
     get_user_by_telegram_id, get_all_clients, create_order, create_client_no_tg,
-    get_active_orders, get_archived_orders, get_order_by_id,
+    get_active_orders, get_active_orders_adam, get_archived_orders, get_order_by_id,
     update_order_status
 )
 from keyboards.keyboards import (
@@ -169,7 +169,10 @@ async def active_orders(message: Message):
     if not user or user["role"] not in ["manager", "admin", "adam"]:
         return
 
-    orders = await get_active_orders()
+    if user["role"] == "adam":
+        orders = await get_active_orders_adam()
+    else:
+        orders = await get_active_orders()
     if not orders:
         await message.answer("📭 Активных заказов нет.")
         return

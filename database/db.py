@@ -195,13 +195,28 @@ async def get_active_orders():
     pool = await get_pool()
     async with pool.acquire() as conn:
         return await conn.fetch(
-            """SELECT o.*, 
+            """SELECT o.*,
                       c.name as client_name,
                       m.name as manager_name
                FROM orders o
                LEFT JOIN users c ON o.client_id = c.id
                LEFT JOIN users m ON o.manager_id = m.id
                WHERE o.status != 'shipped'
+               ORDER BY o.deadline ASC"""
+        )
+
+
+async def get_active_orders_adam():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetch(
+            """SELECT o.*,
+                      c.name as client_name,
+                      m.name as manager_name
+               FROM orders o
+               LEFT JOIN users c ON o.client_id = c.id
+               LEFT JOIN users m ON o.manager_id = m.id
+               WHERE o.status IN ('accepted', 'in_production')
                ORDER BY o.deadline ASC"""
         )
 
