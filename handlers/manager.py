@@ -152,13 +152,20 @@ async def order_deadline(message: Message, state: FSMContext):
     )
 
     try:
-        await message.bot.send_message(
-            ADAM_ID,
-            f"🆕 Новый заказ!\n\n{text}",
-            reply_markup=order_actions_keyboard(order["id"], order["status"], "adam")
-        )
+        kb = order_actions_keyboard(order["id"], order["status"], "adam")
         if data.get("photo_file_id"):
-            await message.bot.send_photo(ADAM_ID, data["photo_file_id"])
+            await message.bot.send_photo(
+                ADAM_ID,
+                data["photo_file_id"],
+                caption=f"🆕 Новый заказ!\n\n{text}",
+                reply_markup=kb
+            )
+        else:
+            await message.bot.send_message(
+                ADAM_ID,
+                f"🆕 Новый заказ!\n\n{text}",
+                reply_markup=kb
+            )
     except Exception:
         pass
 

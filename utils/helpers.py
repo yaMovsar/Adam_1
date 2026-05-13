@@ -21,12 +21,11 @@ def format_order_card(order, archived=False) -> str:
     text = (
         f"📦 Заказ {order['order_number']}\n"
         f"━━━━━━━━━━━━━━━━\n"
-        f"📝 {order['description']}\n"
-        f"🎨 Цвет: {order['color'] or '—'}\n"
-        f"👤 Клиент: {order.get('client_name') or '—'}\n"
-        f"📅 Срок: {deadline}\n"
-        f"📊 Статус: {status}\n"
-        f"🗓 Создан: {created}"
+        f"📝 {order['description']}\n\n"
+        f"🎨 {order['color'] or '—'}\n"
+        f"👤 {order.get('client_name') or '—'}\n"
+        f"📅 {deadline}   📊 {status}\n"
+        f"🗓 {created}"
     )
 
     if archived and order.get("shipped_at"):
@@ -39,7 +38,10 @@ def format_order_card(order, archived=False) -> str:
 def parse_deadline(text: str):
     text = text.strip().lower()
 
-    match = re.search(r"через\s+(\d+)\s+дн", text)
+    if text.isdigit():
+        return date.today() + timedelta(days=int(text))
+
+    match = re.search(r"через\s+(\d+)\s*дн", text)
     if match:
         days = int(match.group(1))
         return date.today() + timedelta(days=days)
