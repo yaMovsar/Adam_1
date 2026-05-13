@@ -1,7 +1,7 @@
 from aiogram import Router, F
 from aiogram.filters import CommandStart
 from aiogram.types import Message
-from config import ADMIN_ID
+from config import ADMIN_ID, ADAM_ID
 from database.db import get_user_by_telegram_id, create_user
 from keyboards.keyboards import (
     main_menu_admin, main_menu_manager,
@@ -24,6 +24,19 @@ async def cmd_start(message: Message):
             f"👑 Добро пожаловать, администратор!\n"
             f"Управляйте пользователями и заказами.",
             reply_markup=main_menu_admin()
+        )
+        return
+
+    if telegram_id == ADAM_ID:
+        if not user:
+            await create_user(telegram_id, message.from_user.full_name, "adam")
+        elif user["role"] == "pending":
+            from database.db import update_user_role
+            await update_user_role(telegram_id, message.from_user.full_name, "adam")
+        await message.answer(
+            f"🔨 Добро пожаловать, мастер!\n"
+            f"Управляйте заказами в производстве.",
+            reply_markup=main_menu_adam()
         )
         return
 
