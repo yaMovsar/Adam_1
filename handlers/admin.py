@@ -3,9 +3,15 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
-from database.db import get_all_pending_users, update_user_role, get_user_by_telegram_id
-from keyboards.keyboards import admin_pending_user_keyboard, role_selection_keyboard, main_menu_admin
-from utils.helpers import notify_owner
+from database.db import (
+    get_all_pending_users, update_user_role, get_user_by_telegram_id,
+    get_order_by_id, get_all_clients, delete_order, update_order_field
+)
+from keyboards.keyboards import (
+    admin_pending_user_keyboard, role_selection_keyboard, main_menu_admin,
+    order_actions_keyboard, order_edit_keyboard, confirm_delete_keyboard, clients_keyboard
+)
+from utils.helpers import notify_owner, format_order_card, parse_deadline
 
 router = Router()
 
@@ -13,6 +19,11 @@ router = Router()
 class AdminStates(StatesGroup):
     waiting_for_name = State()
     waiting_for_role_telegram_id = State()
+
+
+class OrderEditStates(StatesGroup):
+    waiting_value = State()
+    waiting_client = State()
 
 
 @router.message(F.text == "⏳ Ожидают подтверждения")
@@ -143,4 +154,121 @@ async def reject_user(callback: CallbackQuery):
     except Exception:
         pass
 
+    await callback.answer()
+
+
+# ── Редактирование заказа ──────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("edit_order:"))
+async def edit_order_start(callback: CallbackQuery):
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    if not user or user["role"] != "admin":
+        return
+    order_id = int(callback.data.split(":")[1])
+    order = await get_order_by_id(order_id)
+    await callback.message.answer(
+        f"✏️ Редактирование заказа {order['order_number']}\nЧто изменить?",
+        reply_markup=order_edit_keyboard(order_id)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("edit_field:"))
+async def edit_field_select(callback: CallbackQuery, state: FSMContext):
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    if not user or user["role"] != "admin":
+        return
+
+    parts = callback.data.split(":")
+    order_id, field = int(parts[1]), parts[2]
+
+    if field == "client":
+        clients = await get_all_clients()
+        await state.set_state(OrderEditStates.waiting_client)
+        await state.update_data(order_id=order_id)
+        await callback.message.answer(
+            "👤 Выберите нового клиента:",
+            reply_markup=clients_keyboard(clients)
+        )
+    else:
+        prompts = {
+            "description": "📝 Введите новое описание:",
+            "color": "🎨 Введите новый цвет:",
+            "deadline": "📅 Введите новый срок (например: 20.05 или через 5 дней):",
+        }
+        await state.set_state(OrderEditStates.waiting_value)
+        await state.update_data(order_id=order_id, field=field)
+        await callback.message.answer(prompts[field])
+    await callback.answer()
+
+
+@router.message(OrderEditStates.waiting_value)
+async def edit_field_value(message: Message, state: FSMContext):
+    data = await state.get_data()
+    order_id, field = data["order_id"], data["field"]
+
+    if field == "deadline":
+        value = parse_deadline(message.text.strip())
+        if not value:
+            await message.answer("❌ Не понял дату. Попробуйте: 20.05 или «через 5 дней»")
+            return
+    else:
+        value = message.text.strip()
+
+    order = await update_order_field(order_id, field, value)
+    await state.clear()
+    await message.answer(
+        f"✅ Заказ обновлён!\n\n{format_order_card(order)}",
+        reply_markup=order_actions_keyboard(order["id"], order["status"], "admin")
+    )
+
+
+@router.callback_query(OrderEditStates.waiting_client, F.data.startswith("select_client:"))
+async def edit_client_select(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    client_id = int(callback.data.split(":")[1])
+    order = await update_order_field(data["order_id"], "client_id", client_id)
+    await state.clear()
+    await callback.message.answer(
+        f"✅ Клиент обновлён!\n\n{format_order_card(order)}",
+        reply_markup=order_actions_keyboard(order["id"], order["status"], "admin")
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("cancel_edit:"))
+async def cancel_edit(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.edit_text("❌ Действие отменено.")
+    await callback.answer()
+
+
+# ── Удаление заказа ───────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("delete_order:"))
+async def delete_order_start(callback: CallbackQuery):
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    if not user or user["role"] != "admin":
+        return
+    order_id = int(callback.data.split(":")[1])
+    order = await get_order_by_id(order_id)
+    await callback.message.answer(
+        f"🗑 Удалить заказ {order['order_number']}?\n"
+        f"👤 Клиент: {order.get('client_name') or '—'}\n\n"
+        f"⚠️ Это действие нельзя отменить.",
+        reply_markup=confirm_delete_keyboard(order_id)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("confirm_delete:"))
+async def confirm_delete(callback: CallbackQuery):
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    if not user or user["role"] != "admin":
+        return
+    order_id = int(callback.data.split(":")[1])
+    order = await get_order_by_id(order_id)
+    order_number = order["order_number"] if order else f"#{order_id}"
+    await delete_order(order_id)
+    await callback.message.edit_text(f"✅ Заказ {order_number} удалён.")
     await callback.answer()

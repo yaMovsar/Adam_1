@@ -75,7 +75,31 @@ def order_actions_keyboard(order_id: int, current_status: str, role: str):
         text="📅 Продлить срок",
         callback_data=f"extend_deadline:{order_id}"
     )
+
+    if role == "admin":
+        builder.button(text="✏️ Редактировать", callback_data=f"edit_order:{order_id}")
+        builder.button(text="🗑 Удалить заказ", callback_data=f"delete_order:{order_id}")
+
     builder.adjust(1)
+    return builder.as_markup()
+
+
+def order_edit_keyboard(order_id: int):
+    builder = InlineKeyboardBuilder()
+    builder.button(text="📝 Описание", callback_data=f"edit_field:{order_id}:description")
+    builder.button(text="🎨 Цвет", callback_data=f"edit_field:{order_id}:color")
+    builder.button(text="📅 Срок", callback_data=f"edit_field:{order_id}:deadline")
+    builder.button(text="👤 Клиент", callback_data=f"edit_field:{order_id}:client")
+    builder.button(text="❌ Отмена", callback_data=f"cancel_edit:{order_id}")
+    builder.adjust(2)
+    return builder.as_markup()
+
+
+def confirm_delete_keyboard(order_id: int):
+    builder = InlineKeyboardBuilder()
+    builder.button(text="✅ Да, удалить", callback_data=f"confirm_delete:{order_id}")
+    builder.button(text="❌ Отмена", callback_data=f"cancel_edit:{order_id}")
+    builder.adjust(2)
     return builder.as_markup()
 
 

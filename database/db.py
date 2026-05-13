@@ -246,6 +246,24 @@ async def extend_order_deadline(order_id: int, new_deadline, reason: str, extend
         return await get_order_by_id(order_id)
 
 
+async def delete_order(order_id: int):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM order_extensions WHERE order_id = $1", order_id)
+        await conn.execute("DELETE FROM order_status_log WHERE order_id = $1", order_id)
+        await conn.execute("DELETE FROM orders WHERE id = $1", order_id)
+
+
+async def update_order_field(order_id: int, field: str, value):
+    allowed = {"description", "color", "deadline", "client_id"}
+    if field not in allowed:
+        raise ValueError(f"Invalid field: {field}")
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(f"UPDATE orders SET {field} = $1 WHERE id = $2", value, order_id)
+        return await get_order_by_id(order_id)
+
+
 async def get_archived_orders():
     pool = await get_pool()
     async with pool.acquire() as conn:

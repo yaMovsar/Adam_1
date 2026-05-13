@@ -88,7 +88,7 @@ async def order_description(message: Message, state: FSMContext):
         await state.set_state(OrderStates.waiting_new_client_name)
 
 
-@router.callback_query(F.data.startswith("select_client:"))
+@router.callback_query(OrderStates.waiting_client, F.data.startswith("select_client:"))
 async def select_client(callback: CallbackQuery, state: FSMContext):
     client_id = int(callback.data.split(":")[1])
     await state.update_data(client_id=client_id)
@@ -99,7 +99,7 @@ async def select_client(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.callback_query(F.data == "new_client")
+@router.callback_query(OrderStates.waiting_client, F.data == "new_client")
 async def new_client_prompt(callback: CallbackQuery, state: FSMContext):
     await state.set_state(OrderStates.waiting_new_client_name)
     await callback.message.answer("Введите имя нового клиента:")
