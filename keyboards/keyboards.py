@@ -136,11 +136,23 @@ def confirm_status_keyboard(order_id: int, new_status: str):
     return builder.as_markup()
 
 
+def users_list_keyboard(users):
+    builder = InlineKeyboardBuilder()
+    for u in users:
+        builder.button(
+            text=u["name"] or "Без имени",
+            callback_data=f"user_info:{u['telegram_id']}"
+        )
+    builder.adjust(2)
+    return builder.as_markup()
+
+
 def user_manage_keyboard(telegram_id: int):
     builder = InlineKeyboardBuilder()
     builder.button(text="✏️ Изменить роль", callback_data=f"change_role:{telegram_id}")
     builder.button(text="🗑 Удалить", callback_data=f"delete_user:{telegram_id}")
-    builder.adjust(2)
+    builder.button(text="« Назад к списку", callback_data="users_back")
+    builder.adjust(2, 1)
     return builder.as_markup()
 
 

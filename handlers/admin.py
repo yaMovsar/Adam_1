@@ -12,7 +12,7 @@ from keyboards.keyboards import (
     admin_pending_user_keyboard, role_selection_keyboard, main_menu_admin,
     order_actions_keyboard, order_edit_keyboard, confirm_delete_keyboard,
     edit_clients_keyboard, link_clients_keyboard, main_menu_client,
-    user_manage_keyboard
+    users_list_keyboard, user_manage_keyboard
 )
 from utils.helpers import notify_owner, format_order_card, parse_deadline
 
@@ -416,15 +416,44 @@ async def all_users(message: Message):
         await message.answer("👥 Пользователей пока нет.")
         return
 
-    for u in users:
-        role_label = ROLE_LABELS.get(u["role"], u["role"])
-        tg = f"@{u['telegram_id']}" if u["telegram_id"] > 0 else "без TG"
-        await message.answer(
-            f"{role_label}\n"
-            f"👤 {u['name'] or 'Без имени'}\n"
-            f"🆔 {u['telegram_id']} {tg}",
-            reply_markup=user_manage_keyboard(u["telegram_id"])
-        )
+    await message.answer(
+        f"👥 Пользователи ({len(users)}):",
+        reply_markup=users_list_keyboard(users)
+    )
+
+
+@router.callback_query(F.data.startswith("user_info:"))
+async def user_info(callback: CallbackQuery):
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    if not user or user["role"] != "admin":
+        return
+
+    telegram_id = int(callback.data.split(":")[1])
+    target = await get_user_by_telegram_id(telegram_id)
+    if not target:
+        await callback.answer("Пользователь не найден")
+        return
+
+    role_label = ROLE_LABELS.get(target["role"], target["role"])
+    tg = f"ID: {telegram_id}" if telegram_id > 0 else "без Telegram"
+
+    await callback.message.edit_text(
+        f"{role_label}\n"
+        f"👤 {target['name'] or 'Без имени'}\n"
+        f"🆔 {tg}",
+        reply_markup=user_manage_keyboard(telegram_id)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "users_back")
+async def users_back(callback: CallbackQuery):
+    users = await get_all_users()
+    await callback.message.edit_text(
+        f"👥 Пользователи ({len(users)}):",
+        reply_markup=users_list_keyboard(users)
+    )
+    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("change_role:"))
@@ -440,7 +469,8 @@ async def change_role_start(callback: CallbackQuery, state: FSMContext):
     await state.update_data(target_telegram_id=telegram_id)
 
     await callback.message.answer(
-        f"Введите имя для «{target['name'] or 'без имени'}» (или «.» чтобы оставить):"
+        f"Введите новое имя для «{target['name'] or 'без имени'}»\n"
+        f"(или «.» чтобы оставить текущее):"
     )
     await callback.answer()
 
@@ -456,5 +486,9 @@ async def delete_user_confirm(callback: CallbackQuery):
     name = target["name"] if target else str(telegram_id)
 
     await delete_user(telegram_id)
-    await callback.message.edit_text(f"✅ Пользователь «{name}» удалён.")
+    users = await get_all_users()
+    await callback.message.edit_text(
+        f"✅ «{name}» удалён.\n\n👥 Пользователи ({len(users)}):",
+        reply_markup=users_list_keyboard(users)
+    )
     await callback.answer()
