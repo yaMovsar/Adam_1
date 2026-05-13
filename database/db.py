@@ -83,6 +83,15 @@ async def create_user(telegram_id: int, name: str = None, role: str = "pending")
         )
 
 
+async def update_user_name(telegram_id: int, name: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchrow(
+            "UPDATE users SET name = $1 WHERE telegram_id = $2 RETURNING *",
+            name, telegram_id
+        )
+
+
 async def update_user_role(telegram_id: int, name: str, role: str):
     pool = await get_pool()
     async with pool.acquire() as conn:

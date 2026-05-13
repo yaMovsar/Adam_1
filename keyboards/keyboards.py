@@ -18,6 +18,13 @@ STATUS_EMOJI = {
 }
 
 
+def _short_name(name: str | None) -> str:
+    if not name:
+        return "—"
+    parts = name.split()
+    return parts[0] if len(parts) == 1 else f"{parts[0]} {parts[1][:3]}." if len(parts) > 1 else parts[0]
+
+
 def _deadline_label(deadline) -> str:
     if deadline is None:
         return ""
@@ -146,7 +153,7 @@ def orders_list_keyboard(orders, prefix="order"):
         status = STATUS_EMOJI.get(order["status"], order["status"])
         deadline = _deadline_label(order.get("deadline"))
         builder.button(
-            text=f"{order['order_number']} • {order['client_name']} • {status}{deadline}",
+            text=f"{order['order_number']} • {_short_name(order['client_name'])} • {status}{deadline}",
             callback_data=f"{prefix}_detail:{order['id']}"
         )
     builder.adjust(1)
@@ -174,10 +181,11 @@ def users_list_keyboard(users):
 
 def user_manage_keyboard(telegram_id: int):
     builder = InlineKeyboardBuilder()
-    builder.button(text="✏️ Изменить роль", callback_data=f"change_role:{telegram_id}")
+    builder.button(text="✏️ Переименовать", callback_data=f"rename_user:{telegram_id}")
+    builder.button(text="🔄 Изменить роль", callback_data=f"change_role:{telegram_id}")
     builder.button(text="🗑 Удалить", callback_data=f"delete_user:{telegram_id}")
     builder.button(text="« Назад к списку", callback_data="users_back")
-    builder.adjust(2, 1)
+    builder.adjust(2, 1, 1)
     return builder.as_markup()
 
 

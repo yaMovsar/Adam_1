@@ -4,8 +4,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from database.db import (
-    get_all_pending_users, get_all_users, update_user_role, get_user_by_telegram_id,
-    get_order_by_id, get_all_clients, get_clients_no_tg,
+    get_all_pending_users, get_all_users, update_user_role, update_user_name,
+    get_user_by_telegram_id, get_order_by_id, get_all_clients, get_clients_no_tg,
     delete_order, delete_user, update_order_field, create_client_no_tg, link_client_to_user
 )
 from keyboards.keyboards import (
@@ -32,6 +32,7 @@ class AdminStates(StatesGroup):
     waiting_for_name = State()
     waiting_for_role_telegram_id = State()
     waiting_link_name = State()
+    waiting_for_rename = State()
 
 
 class OrderEditStates(StatesGroup):
@@ -444,6 +445,39 @@ async def user_info(callback: CallbackQuery):
         reply_markup=user_manage_keyboard(telegram_id)
     )
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("rename_user:"))
+async def rename_user_start(callback: CallbackQuery, state: FSMContext):
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    if not user or user["role"] != "admin":
+        return
+
+    telegram_id = int(callback.data.split(":")[1])
+    target = await get_user_by_telegram_id(telegram_id)
+    if not target:
+        await callback.answer("Пользователь не найден")
+        return
+
+    await state.set_state(AdminStates.waiting_for_rename)
+    await state.update_data(target_telegram_id=telegram_id)
+    await callback.message.answer(
+        f"✏️ Введите новое имя для «{target['name'] or 'без имени'}»:"
+    )
+    await callback.answer()
+
+
+@router.message(AdminStates.waiting_for_rename)
+async def rename_user_done(message: Message, state: FSMContext):
+    new_name = message.text.strip()
+    data = await state.get_data()
+    await state.clear()
+
+    updated = await update_user_name(data["target_telegram_id"], new_name)
+    if updated:
+        await message.answer(f"✅ Имя изменено на «{new_name}»")
+    else:
+        await message.answer("❌ Не удалось обновить имя")
 
 
 @router.callback_query(F.data == "users_back")
