@@ -10,11 +10,11 @@ STATUS_LABELS = {
     "shipped": "🚚 Отправлен",
 }
 
-STATUS_SHORT = {
-    "accepted": "✅ Принят",
-    "in_production": "🔨 Произв.",
-    "ready": "📦 Готов",
-    "shipped": "🚚 Отпр.",
+STATUS_EMOJI = {
+    "accepted": "✅",
+    "in_production": "🔨",
+    "ready": "📦",
+    "shipped": "🚚",
 }
 
 
@@ -143,7 +143,7 @@ def confirm_delete_keyboard(order_id: int):
 def orders_list_keyboard(orders, prefix="order"):
     builder = InlineKeyboardBuilder()
     for order in orders:
-        status = STATUS_SHORT.get(order["status"], order["status"])
+        status = STATUS_EMOJI.get(order["status"], order["status"])
         deadline = _deadline_label(order.get("deadline"))
         builder.button(
             text=f"{order['order_number']} • {order['client_name']} • {status}{deadline}",
