@@ -139,8 +139,21 @@ def confirm_status_keyboard(order_id: int, new_status: str):
 def admin_pending_user_keyboard(telegram_id: int):
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Назначить роль", callback_data=f"assign_role:{telegram_id}")
+    builder.button(text="🔗 Привязать к клиенту", callback_data=f"link_user:{telegram_id}")
     builder.button(text="❌ Отклонить", callback_data=f"reject_user:{telegram_id}")
     builder.adjust(2)
+    return builder.as_markup()
+
+
+def link_clients_keyboard(clients, telegram_id: int):
+    builder = InlineKeyboardBuilder()
+    for client in clients:
+        builder.button(
+            text=client["name"],
+            callback_data=f"link_to:{client['id']}:{telegram_id}"
+        )
+    builder.button(text="❌ Отмена", callback_data=f"link_cancel:{telegram_id}")
+    builder.adjust(1)
     return builder.as_markup()
 
 

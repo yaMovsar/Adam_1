@@ -109,6 +109,30 @@ async def get_all_clients():
         )
 
 
+async def get_clients_no_tg():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetch(
+            "SELECT * FROM users WHERE role = 'client_no_tg' ORDER BY name"
+        )
+
+
+async def link_client_to_user(client_no_tg_id: int, telegram_id: int, name: str):
+    """Привязывает реального Telegram-пользователя к существующему клиенту без TG.
+    Удаляет pending-запись, обновляет client_no_tg запись реальным telegram_id."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "DELETE FROM users WHERE telegram_id = $1 AND role = 'pending'",
+            telegram_id
+        )
+        return await conn.fetchrow(
+            """UPDATE users SET telegram_id = $1, name = $2, role = 'client'
+               WHERE id = $3 RETURNING *""",
+            telegram_id, name, client_no_tg_id
+        )
+
+
 async def create_client_no_tg(name: str):
     pool = await get_pool()
     async with pool.acquire() as conn:

@@ -5,12 +5,13 @@ from aiogram.fsm.state import State, StatesGroup
 
 from database.db import (
     get_all_pending_users, update_user_role, get_user_by_telegram_id,
-    get_order_by_id, get_all_clients, delete_order, update_order_field, create_client_no_tg
+    get_order_by_id, get_all_clients, get_clients_no_tg,
+    delete_order, update_order_field, create_client_no_tg, link_client_to_user
 )
 from keyboards.keyboards import (
     admin_pending_user_keyboard, role_selection_keyboard, main_menu_admin,
     order_actions_keyboard, order_edit_keyboard, confirm_delete_keyboard,
-    edit_clients_keyboard
+    edit_clients_keyboard, link_clients_keyboard, main_menu_client
 )
 from utils.helpers import notify_owner, format_order_card, parse_deadline
 
@@ -20,6 +21,7 @@ router = Router()
 class AdminStates(StatesGroup):
     waiting_for_name = State()
     waiting_for_role_telegram_id = State()
+    waiting_link_name = State()
 
 
 class OrderEditStates(StatesGroup):
@@ -156,6 +158,89 @@ async def reject_user(callback: CallbackQuery):
     except Exception:
         pass
 
+    await callback.answer()
+
+
+# ── Привязка пользователя к существующему клиенту ────────────────────────
+
+@router.callback_query(F.data.startswith("link_user:"))
+async def link_user_start(callback: CallbackQuery):
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    if not user or user["role"] != "admin":
+        return
+
+    telegram_id = int(callback.data.split(":")[1])
+    clients = await get_clients_no_tg()
+
+    if not clients:
+        await callback.message.answer(
+            "❌ Нет клиентов без Telegram для привязки.\n"
+            "Сначала создайте заказы для клиента вручную."
+        )
+        await callback.answer()
+        return
+
+    await callback.message.answer(
+        "🔗 Выберите клиента, к которому привязать этого пользователя:\n"
+        "(будут перенесены все его заказы)",
+        reply_markup=link_clients_keyboard(clients, telegram_id)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("link_to:"))
+async def link_to_client_select(callback: CallbackQuery, state: FSMContext):
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    if not user or user["role"] != "admin":
+        return
+
+    parts = callback.data.split(":")
+    client_no_tg_id, telegram_id = int(parts[1]), int(parts[2])
+
+    from database.db import get_user_by_telegram_id as get_pending
+    pending = await get_pending(telegram_id)
+    current_name = pending["name"] if pending else ""
+
+    await state.set_state(AdminStates.waiting_link_name)
+    await state.update_data(client_no_tg_id=client_no_tg_id, link_telegram_id=telegram_id)
+    await callback.message.answer(
+        f"Введите имя клиента (текущее: {current_name}):\n"
+        f"Или отправьте точку «.» чтобы оставить текущее имя."
+    )
+    await callback.answer()
+
+
+@router.message(AdminStates.waiting_link_name)
+async def link_name_enter(message: Message, state: FSMContext):
+    data = await state.get_data()
+    client_no_tg_id = data["client_no_tg_id"]
+    telegram_id = data["link_telegram_id"]
+
+    if message.text.strip() == ".":
+        pending = await get_user_by_telegram_id(telegram_id)
+        name = pending["name"] if pending else message.from_user.full_name
+    else:
+        name = message.text.strip()
+
+    await link_client_to_user(client_no_tg_id, telegram_id, name)
+    await state.clear()
+
+    await message.answer(f"✅ Готово! «{name}» привязан — теперь он видит все свои заказы.")
+
+    try:
+        await message.bot.send_message(
+            telegram_id,
+            f"✅ Ваш доступ подтверждён!\n"
+            f"Имя в системе: {name}\n\n"
+            f"Напишите /start чтобы увидеть свои заказы."
+        )
+    except Exception:
+        pass
+
+
+@router.callback_query(F.data.startswith("link_cancel:"))
+async def link_cancel(callback: CallbackQuery):
+    await callback.message.edit_text("❌ Привязка отменена.")
     await callback.answer()
 
 
