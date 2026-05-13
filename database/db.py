@@ -93,6 +93,20 @@ async def update_user_role(telegram_id: int, name: str, role: str):
         )
 
 
+async def get_all_users():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetch(
+            "SELECT * FROM users WHERE role != 'pending' ORDER BY role, name"
+        )
+
+
+async def delete_user(telegram_id: int):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM users WHERE telegram_id = $1", telegram_id)
+
+
 async def get_all_pending_users():
     pool = await get_pool()
     async with pool.acquire() as conn:
