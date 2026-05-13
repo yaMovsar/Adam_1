@@ -105,7 +105,22 @@ async def get_all_clients():
     pool = await get_pool()
     async with pool.acquire() as conn:
         return await conn.fetch(
-            "SELECT * FROM users WHERE role = 'client' ORDER BY name"
+            "SELECT * FROM users WHERE role IN ('client', 'client_no_tg') ORDER BY name"
+        )
+
+
+async def create_client_no_tg(name: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        min_id = await conn.fetchval(
+            "SELECT COALESCE(MIN(telegram_id), 0) FROM users WHERE telegram_id < 0"
+        )
+        new_tg_id = min_id - 1
+        return await conn.fetchrow(
+            """INSERT INTO users (telegram_id, name, role)
+               VALUES ($1, $2, 'client_no_tg')
+               RETURNING *""",
+            new_tg_id, name
         )
 
 

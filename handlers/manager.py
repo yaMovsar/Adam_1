@@ -6,7 +6,7 @@ from datetime import date, timedelta
 
 from config import ADAM_ID
 from database.db import (
-    get_user_by_telegram_id, get_all_clients, create_order,
+    get_user_by_telegram_id, get_all_clients, create_order, create_client_no_tg,
     get_active_orders, get_archived_orders, get_order_by_id,
     update_order_status
 )
@@ -108,9 +108,8 @@ async def new_client_prompt(callback: CallbackQuery, state: FSMContext):
 
 @router.message(OrderStates.waiting_new_client_name)
 async def new_client_name(message: Message, state: FSMContext):
-    from database.db import create_user
     name = message.text.strip()
-    new_client = await create_user(telegram_id=0, name=name, role="client_no_tg")
+    new_client = await create_client_no_tg(name)
 
     await state.update_data(client_id=new_client["id"])
     await state.set_state(OrderStates.waiting_deadline)
