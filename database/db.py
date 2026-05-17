@@ -174,8 +174,10 @@ async def create_client_no_tg(name: str):
 async def create_order(description, color, photo_file_id, client_id, manager_id, deadline):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        count = await conn.fetchval("SELECT COUNT(*) FROM orders")
-        order_number = f"#{str(count + 1).zfill(4)}"
+        max_num = await conn.fetchval(
+            "SELECT COALESCE(MAX(CAST(SUBSTRING(order_number FROM 2) AS INTEGER)), 0) FROM orders"
+        )
+        order_number = f"#{str(max_num + 1).zfill(4)}"
         return await conn.fetchrow(
             """INSERT INTO orders
                (order_number, description, color, photo_file_id, client_id, manager_id, deadline, status)
