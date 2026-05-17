@@ -163,7 +163,7 @@ def orders_list_keyboard(orders, prefix="order"):
     builder = InlineKeyboardBuilder()
     for order in orders:
         status = STATUS_EMOJI.get(order["status"], order["status"])
-        deadline = _deadline_label(order.get("deadline"))
+        deadline = "" if order.get("status") == "ready" else _deadline_label(order.get("deadline"))
         builder.button(
             text=f"{order['order_number']} • {_short_name(order['client_name'])} • {status}{deadline}",
             callback_data=f"{prefix}_detail:{order['id']}"
