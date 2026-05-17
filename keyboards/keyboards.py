@@ -98,8 +98,12 @@ def edit_clients_keyboard(clients):
     return builder.as_markup()
 
 
-def order_actions_keyboard(order_id: int, current_status: str, role: str):
+def order_actions_keyboard(
+    order_id: int, current_status: str, role: str,
+    prev_id=None, next_id=None, prev_num=None, next_num=None
+):
     builder = InlineKeyboardBuilder()
+    widths = []
 
     status_flow = {
         "accepted": "in_production",
@@ -110,23 +114,29 @@ def order_actions_keyboard(order_id: int, current_status: str, role: str):
     next_status = status_flow.get(current_status)
     if next_status:
         label = STATUS_LABELS.get(next_status, next_status)
-        builder.button(
-            text=f"➡️ {label}",
-            callback_data=f"set_status:{order_id}:{next_status}"
-        )
+        builder.button(text=f"➡️ {label}", callback_data=f"set_status:{order_id}:{next_status}")
+        widths.append(1)
 
-    builder.button(
-        text="📅 Продлить срок",
-        callback_data=f"extend_deadline:{order_id}"
-    )
+    builder.button(text="📅 Продлить срок", callback_data=f"extend_deadline:{order_id}")
+    widths.append(1)
 
     if role == "admin":
         builder.button(text="✏️ Редактировать", callback_data=f"edit_order:{order_id}")
         builder.button(text="🗑 Удалить заказ", callback_data=f"delete_order:{order_id}")
+        widths.extend([1, 1])
+
+    nav_count = (1 if prev_id else 0) + (1 if next_id else 0)
+    if prev_id:
+        builder.button(text=f"⬅️ {prev_num}", callback_data=f"prev_order:{prev_id}")
+    if next_id:
+        builder.button(text=f"{next_num} ➡️", callback_data=f"next_order:{next_id}")
+    if nav_count:
+        widths.append(nav_count)
 
     builder.button(text="« К заказам", callback_data="back_to_orders")
+    widths.append(1)
 
-    builder.adjust(1)
+    builder.adjust(*widths)
     return builder.as_markup()
 
 

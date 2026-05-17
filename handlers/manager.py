@@ -35,6 +35,22 @@ async def check_role(telegram_id: int, allowed_roles: list):
     return user and user["role"] in allowed_roles
 
 
+def _get_adjacent(orders, current_id):
+    ids = [o["id"] for o in orders]
+    try:
+        idx = ids.index(current_id)
+    except ValueError:
+        return None, None, None, None
+    prev_o = orders[idx - 1] if idx > 0 else None
+    next_o = orders[idx + 1] if idx < len(orders) - 1 else None
+    return (
+        prev_o["id"] if prev_o else None,
+        prev_o["order_number"] if prev_o else None,
+        next_o["id"] if next_o else None,
+        next_o["order_number"] if next_o else None,
+    )
+
+
 @router.message(F.text == "➕ Новый заказ")
 async def new_order_start(message: Message, state: FSMContext):
     if not await check_role(message.from_user.id, ["manager", "admin"]):
@@ -207,6 +223,17 @@ async def archive(message: Message):
     )
 
 
+async def _show_order_detail(callback, order, user, all_orders):
+    prev_id, prev_num, next_id, next_num = _get_adjacent(all_orders, order["id"])
+    text = format_order_card(order)
+    kb = order_actions_keyboard(order["id"], order["status"], user["role"], prev_id, next_id, prev_num, next_num)
+    if order.get("photo_file_id"):
+        await callback.message.answer_photo(order["photo_file_id"], caption=text, reply_markup=kb)
+    else:
+        await callback.message.answer(text, reply_markup=kb)
+    await callback.answer()
+
+
 @router.callback_query(F.data.startswith("order_detail:"))
 async def order_detail(callback: CallbackQuery):
     user = await get_user_by_telegram_id(callback.from_user.id)
@@ -219,20 +246,24 @@ async def order_detail(callback: CallbackQuery):
         await callback.answer("Заказ не найден")
         return
 
-    text = format_order_card(order)
+    all_orders = await get_active_orders_adam() if user["role"] == "adam" else await get_active_orders()
+    await _show_order_detail(callback, order, user, all_orders)
 
-    if order.get("photo_file_id"):
-        await callback.message.answer_photo(
-            order["photo_file_id"],
-            caption=text,
-            reply_markup=order_actions_keyboard(order["id"], order["status"], user["role"])
-        )
-    else:
-        await callback.message.answer(
-            text,
-            reply_markup=order_actions_keyboard(order["id"], order["status"], user["role"])
-        )
-    await callback.answer()
+
+@router.callback_query(F.data.startswith("prev_order:") | F.data.startswith("next_order:"))
+async def navigate_order(callback: CallbackQuery):
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    if not user or user["role"] not in ["manager", "admin", "adam"]:
+        return
+
+    order_id = int(callback.data.split(":")[1])
+    order = await get_order_by_id(order_id)
+    if not order:
+        await callback.answer("Заказ не найден")
+        return
+
+    all_orders = await get_active_orders_adam() if user["role"] == "adam" else await get_active_orders()
+    await _show_order_detail(callback, order, user, all_orders)
 
 
 @router.callback_query(F.data.startswith("archive_detail:"))
