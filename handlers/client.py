@@ -5,7 +5,10 @@ from database.db import (
     get_user_by_telegram_id, get_orders_for_client,
     get_archived_orders_for_client, get_order_by_id
 )
-from keyboards.keyboards import orders_list_keyboard, STATUS_LABELS
+from keyboards.keyboards import (
+    orders_list_keyboard, STATUS_LABELS,
+    client_order_back_keyboard, client_archive_back_keyboard
+)
 from utils.helpers import format_order_card
 
 router = Router()
@@ -72,9 +75,9 @@ async def client_order_detail(callback: CallbackQuery):
     )
 
     if order.get("photo_file_id"):
-        await callback.message.answer_photo(order["photo_file_id"], caption=text)
+        await callback.message.answer_photo(order["photo_file_id"], caption=text, reply_markup=client_order_back_keyboard())
     else:
-        await callback.message.answer(text)
+        await callback.message.answer(text, reply_markup=client_order_back_keyboard())
 
     await callback.answer()
 
@@ -105,5 +108,40 @@ async def client_archive_detail(callback: CallbackQuery):
         f"✅ Выполнен"
     )
 
-    await callback.message.answer(text)
+    await callback.message.answer(text, reply_markup=client_archive_back_keyboard())
+    await callback.answer()
+
+
+@router.callback_query(F.data == "back_to_my_orders")
+async def back_to_my_orders_cb(callback: CallbackQuery):
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    if not user or user["role"] != "client":
+        await callback.answer()
+        return
+    orders = await get_orders_for_client(user["id"])
+    active = [o for o in orders if o["status"] != "shipped"]
+    if not active:
+        await callback.message.answer("📭 У вас нет активных заказов.")
+    else:
+        await callback.message.answer(
+            f"📦 Ваши активные заказы ({len(active)}):",
+            reply_markup=orders_list_keyboard(active, prefix="client_order")
+        )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "back_to_client_archive")
+async def back_to_client_archive_cb(callback: CallbackQuery):
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    if not user or user["role"] != "client":
+        await callback.answer()
+        return
+    orders = await get_archived_orders_for_client(user["id"])
+    if not orders:
+        await callback.message.answer("📭 Архив пуст.")
+    else:
+        await callback.message.answer(
+            f"🗂 Выполненные заказы ({len(orders)}):",
+            reply_markup=orders_list_keyboard(orders, prefix="client_archive")
+        )
     await callback.answer()

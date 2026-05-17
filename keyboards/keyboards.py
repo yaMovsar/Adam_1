@@ -124,6 +124,8 @@ def order_actions_keyboard(order_id: int, current_status: str, role: str):
         builder.button(text="✏️ Редактировать", callback_data=f"edit_order:{order_id}")
         builder.button(text="🗑 Удалить заказ", callback_data=f"delete_order:{order_id}")
 
+    builder.button(text="« К заказам", callback_data="back_to_orders")
+
     builder.adjust(1)
     return builder.as_markup()
 
@@ -142,7 +144,7 @@ def order_edit_keyboard(order_id: int):
 def confirm_delete_keyboard(order_id: int):
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Да, удалить", callback_data=f"confirm_delete:{order_id}")
-    builder.button(text="❌ Отмена", callback_data=f"cancel_edit:{order_id}")
+    builder.button(text="« Назад", callback_data=f"cancel_edit:{order_id}")
     builder.adjust(2)
     return builder.as_markup()
 
@@ -216,4 +218,22 @@ def role_selection_keyboard(telegram_id: int):
     builder.button(text="🔧 Мастер (Адам)", callback_data=f"set_role:{telegram_id}:adam")
     builder.button(text="🛋 Клиент", callback_data=f"set_role:{telegram_id}:client")
     builder.adjust(1)
+    return builder.as_markup()
+
+
+def archive_back_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.button(text="« К архиву", callback_data="back_to_archive")
+    return builder.as_markup()
+
+
+def client_order_back_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.button(text="« К моим заказам", callback_data="back_to_my_orders")
+    return builder.as_markup()
+
+
+def client_archive_back_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.button(text="« К архиву", callback_data="back_to_client_archive")
     return builder.as_markup()

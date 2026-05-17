@@ -369,7 +369,16 @@ async def edit_cancel_client(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("cancel_edit:"))
 async def cancel_edit(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text("❌ Действие отменено.")
+    order_id = int(callback.data.split(":")[1])
+    order = await get_order_by_id(order_id)
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    if not order:
+        await callback.message.edit_text("❌ Заказ не найден.")
+    else:
+        await callback.message.edit_text(
+            format_order_card(order),
+            reply_markup=order_actions_keyboard(order["id"], order["status"], user["role"] if user else "admin")
+        )
     await callback.answer()
 
 

@@ -12,7 +12,7 @@ from database.db import (
 )
 from keyboards.keyboards import (
     main_menu_manager, main_menu_admin, clients_keyboard, orders_list_keyboard,
-    order_actions_keyboard, STATUS_LABELS
+    order_actions_keyboard, STATUS_LABELS, archive_back_keyboard
 )
 from utils.helpers import format_order_card, parse_deadline, calculate_deadline, notify_owner
 
@@ -244,7 +244,44 @@ async def archive_detail(callback: CallbackQuery):
         return
 
     text = format_order_card(order, archived=True)
-    await callback.message.answer(text)
+    await callback.message.answer(text, reply_markup=archive_back_keyboard())
+    await callback.answer()
+
+
+@router.callback_query(F.data == "back_to_orders")
+async def back_to_orders_cb(callback: CallbackQuery):
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    if not user:
+        await callback.answer()
+        return
+    if user["role"] == "adam":
+        orders = await get_active_orders_adam()
+    else:
+        orders = await get_active_orders()
+    if not orders:
+        await callback.message.answer("📭 Активных заказов нет.")
+    else:
+        await callback.message.answer(
+            f"📋 Активные заказы ({len(orders)}):",
+            reply_markup=orders_list_keyboard(orders)
+        )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "back_to_archive")
+async def back_to_archive_cb(callback: CallbackQuery):
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    if not user:
+        await callback.answer()
+        return
+    orders = await get_archived_orders()
+    if not orders:
+        await callback.message.answer("📭 Архив пуст.")
+    else:
+        await callback.message.answer(
+            f"🗂 Архив ({len(orders)} заказов):",
+            reply_markup=orders_list_keyboard(orders, prefix="archive")
+        )
     await callback.answer()
 
 
